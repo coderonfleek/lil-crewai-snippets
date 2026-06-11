@@ -1,0 +1,46 @@
+"""SupportFlow — the orchestration spine of HelpDesk AI.
+
+Run it:
+    uv run kickoff
+"""
+
+from __future__ import annotations
+
+from dotenv import load_dotenv
+
+from crewai.flow.flow import Flow, start
+
+load_dotenv()
+
+
+class SupportFlow(Flow):
+    """End-to-end support flow."""
+
+    @start()
+    def intake(self):
+        """Placeholder intake step. Returns a stub message so we can see it run."""
+        print("📥 Intake step ran")
+        return "intake-complete"
+
+
+def kickoff():
+    """Run the flow. Wired to `uv run kickoff` via pyproject.toml."""
+    flow = SupportFlow()
+    flow.kickoff()
+    print("✓ Flow finished")
+
+
+def plot():
+    """Generate an interactive HTML diagram of the flow."""
+    flow = SupportFlow()
+    flow.plot("support_flow.html")
+    print("✓ Wrote support_flow.html")
+
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "plot":
+        plot()
+    else:
+        kickoff()

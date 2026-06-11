@@ -1,0 +1,133 @@
+# ── Step 1: intake ──────────────────────────────────────────────
+    @start()
+    def intake(self):
+        """Parse the incoming request into typed state."""
+        # Flow inputs arrive via kickoff(inputs={...}). The state's
+        # `intake_payload` dict is populated automatically because the
+        # key matches a field on SupportState.
+        intake = self.state.intake_payload or DEFAULT_INTAKE
+
+        customer = Customer(
+            email=intake["customer_email"],
+            name=intake.get("customer_name", ""),
+            tier=CustomerTier(intake.get("tier", "free")),
+        )
+        ticket = Ticket(
+            subject=intake["subject"],
+            description=intake["description"],
+        )
+
+        self.state.customer = customer
+        self.state.ticket = ticket
+        self.state.trail.append(f"intake: ticket {ticket.ticket_id} for {customer.email}")
+        print(f"📥 Intake: {ticket.ticket_id} — {customer.email} ({customer.tier.value})")
+        return ticket
+
+# ── Step 2: triage ──────────────────────────────────────────────
+    @listen(intake)
+    def triage(self, ticket: Ticket):
+        """Classify the ticket.
+
+        The triage step's job is to produce a TriageDecision — category,
+        priority, confidence, and whether a human is required. That
+        decision then drives the @router below.
+        """
+        decision = _mock_triage(ticket, self.state.customer)
+
+        self.state.triage = decision
+        # Mirror triage into the ticket so downstream consumers don't
+        # need to dereference state.triage to read priority/category.
+        self.state.ticket.category = decision.category
+        self.state.ticket.priority = decision.priority
+        self.state.ticket.type = _type_from_category(decision.category)
+        self.state.ticket.tags = decision.suggested_tags
+        self.state.trail.append(
+            f"triage: {decision.category.value} / {decision.priority.value} "
+            f"(conf={decision.confidence:.2f})"
+        )
+        print(
+            f"🏷️  Triage: {decision.category.value} / "
+            f"{decision.priority.value} / conf={decision.confidence:.2f}"
+        )
+        return decision
+
+# ── Step 3: route ───────────────────────────────────────────────
+    @router(triage)
+    def route_on_triage(self, decision: TriageDecision):
+        """Decide where the ticket goes next.
+
+        The @router decorator is the CrewAI idiom for branching flows:
+        it returns a string label that downstream @listen("label") methods
+        catch.
+        """
+        if decision.needs_human or decision.confidence < 0.5:
+            return "escalate"
+        if decision.category in {IssueCategory.GENERAL, IssueCategory.ACCOUNT}:
+            return "self_serve"
+        return "needs_agent"
+
+    # ── Step 4a: self-serve resolution ──────────────────────────────
+    @listen("self_serve")
+    def resolve_self_serve(self):
+        """Generic/account issues. Cheap, fast, high-volume path."""        
+        self.state.resolution = _mock_resolution(
+            self.state.ticket,
+            tone="self-service",
+            confidence=0.85,
+        )
+        self.state.trail.append("resolve: self_serve path")
+        print("✅ Self-serve resolution drafted")
+        return self.state.resolution
+
+# ── Step 4b: specialist-agent resolution ────────────────────────
+    @listen("needs_agent")
+    def resolve_with_specialist(self):
+        """Billing/technical/API issues. Needs domain knowledge."""
+        self.state.resolution = _mock_resolution(
+            self.state.ticket,
+            tone="specialist",
+            confidence=0.78,
+        )
+        self.state.trail.append(
+            f"resolve: specialist path ({self.state.triage.category.value})"
+        )
+        print(f"🧑‍🔧 Specialist resolution drafted ({self.state.triage.category.value})")
+        return self.state.resolution
+
+# ── Step 4c: human escalation ───────────────────────────────────
+    @listen("escalate")
+    def escalate_to_human(self):
+        """Low-confidence or policy-sensitive tickets."""
+        self.state.resolution = ResolutionDraft(
+            response_text=(
+                f"Hi {self.state.customer.name or 'there'} — we're escalating "
+                "your ticket to a human specialist who'll be in touch shortly."
+            ),
+            confidence=0.0,
+            suggested_next_action="escalate_to_human_agent",
+        )
+        self.state.trail.append("resolve: escalated to human")
+        print("🚨 Escalated to human")
+        return self.state.resolution
+
+# ── Step 5: respond ─────────────────────────────────────────────
+    @listen(or_(resolve_self_serve, resolve_with_specialist, escalate_to_human))
+    def respond(self):
+        """Send the response — whichever resolution path fired above.
+
+        `or_(...)` is the idiomatic way to fan multiple upstream methods
+        into a single downstream step.
+        """
+        if not self.state.resolution:
+            return  # defensive; shouldn't happen
+        res = self.state.resolution
+        self.state.ticket.status = TicketStatus.PENDING
+        self.state.trail.append("respond: sent")
+        print("\n" + "=" * 60)
+        print("RESPONSE TO CUSTOMER")
+        print("=" * 60)
+        print(res.response_text)
+        print("-" * 60)
+        print(f"confidence={res.confidence:.2f}  next_action={res.suggested_next_action}")
+        print("=" * 60)
+        return self.state

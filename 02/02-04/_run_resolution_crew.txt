@@ -1,0 +1,20 @@
+def _run_resolution_crew(self) -> ResolutionDraft:
+    """Kick off ResolutionCrew with full ticket + customer + triage context."""
+    result = (
+        ResolutionCrew()
+        .for_category(self.state.triage.category)
+        .crew()
+        .kickoff(
+            inputs={
+                "subject": self.state.ticket.subject,
+                "description": self.state.ticket.description,
+                "customer_name": self.state.customer.name,
+                "tier": self.state.customer.tier.value,
+                "past_ticket_count": self.state.customer.past_ticket_count,
+                "category": self.state.triage.category.value,
+                "priority": self.state.triage.priority.value,
+                "tags": ", ".join(self.state.triage.suggested_tags),
+            }
+        )
+    )
+    return result.pydantic

@@ -1,0 +1,19 @@
+------- BILLING TRIAGE -------
+
+{
+    'customer_email': 'mark@acme.corp',
+    'customer_name': 'Mark',
+    'tier': 'pro',
+    'subject': 'Updating my payment method',
+    'description': 'My company issued me a new corporate card and I need to update the credit card on file for my NimbusCloud subscription. Where in the app do I do this?',
+}
+
+------- HUMAN ESCALATION -------
+
+{
+    'customer_email': 'mark@acme.corp',
+    'customer_name': 'Mark',
+    'tier': 'pro',
+    'subject': 'Confused about charge after upgrading to Business',
+    'description': 'I upgraded from Pro to Business yesterday and noticed two amounts on my invoice — one positive, one negative. Can you explain what these are? I want to make sure I have not been double-charged.',
+}

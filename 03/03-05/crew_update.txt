@@ -1,0 +1,12 @@
+@crew
+def crew(self) -> Crew:
+    crew_kwargs = dict(
+        agents=self.agents,
+        tasks=self.tasks,
+        process=Process.sequential,
+        knowledge_sources=self.knowledge_sources,
+        verbose=True,
+    )
+    if self.memory_slice is not None:
+        crew_kwargs["memory"] = self.memory_slice
+    return Crew(**crew_kwargs)

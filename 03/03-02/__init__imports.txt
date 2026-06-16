@@ -1,0 +1,11 @@
+"""Memory layer — durable, per-entity context across flow executions.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from crewai.memory.unified_memory import Memory, MemoryMatch
+
+if TYPE_CHECKING:
+    from ..models import Customer, ResolutionDraft, Ticket, TriageDecision

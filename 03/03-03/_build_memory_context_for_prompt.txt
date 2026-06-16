@@ -1,0 +1,13 @@
+@staticmethod
+def _build_memory_context_for_prompt(prefs: dict) -> str:
+    """Flatten the customer preferences dict into a prompt-ready string."""
+    sections = []
+    for key, label in [
+        ("profile_facts", "Profile"),
+        ("stated_preferences", "Preferences"),
+        ("recent_history", "Recent tickets"),
+    ]:
+        entries = prefs.get(key) or []
+        if entries:
+            sections.append(f"{label}:\n  - " + "\n  - ".join(entries))
+    return "\n\n".join(sections) if sections else "(none — first interaction)"

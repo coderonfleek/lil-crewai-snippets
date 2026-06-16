@@ -1,0 +1,18 @@
+# ─── Scope helpers ───────────────────────────────────────────────────
+
+def customer_scope(email: str, facet: str | None = None) -> str:
+    """Scope for per-customer memories. Email is normalized."""
+    base = f"/customer/{email.lower().strip()}"
+    return f"{base}/{facet}" if facet else base
+
+
+def ticket_scope(ticket_id: str, facet: str | None = None) -> str:
+    """Scope for per-ticket memories."""
+    base = f"/ticket/{ticket_id}"
+    return f"{base}/{facet}" if facet else base
+
+
+def company_scope(facet: str | None = None) -> str:
+    """Scope for organization-wide policies and patterns."""
+    base = "/company/policies"
+    return f"{base}/{facet}" if facet else base

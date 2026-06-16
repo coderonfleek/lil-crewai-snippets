@@ -1,0 +1,13 @@
+# ─── Factory ─────────────────────────────────────────────────────────
+
+def build_support_memory() -> Memory:
+    """Construct the system's Memory() with support-tuned defaults.
+    """
+    return Memory(
+        llm="gpt-4o-mini",
+        storage="lancedb",
+        recency_weight=0.4,
+        semantic_weight=0.4,
+        importance_weight=0.2,
+        recency_half_life_days=60,
+    )

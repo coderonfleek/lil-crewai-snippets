@@ -1,0 +1,66 @@
+# ─── High-level helpers ──────────────────────────────────────────────
+
+def load_customer_context(
+    memory: Memory, email: str, limit_per_facet: int = 5
+) -> dict[str, list[str]]:
+    """Read the three customer facets and return a structured snapshot.
+
+    Returns a dict with keys `profile`, `preferences`, `history`, each
+    a list of memory content strings (most-recent first). Empty lists
+    are returned for facets with no entries.
+
+    """
+    return {
+        facet: [
+            r.content for r in memory.list_records(
+                scope=customer_scope(email, facet), limit=limit_per_facet
+            )
+        ]
+        for facet in ("profile", "preferences", "history")
+    }
+
+
+def remember_ticket_outcome(
+    memory: Memory,
+    *,
+    customer: "Customer",
+    ticket: "Ticket",
+    triage: "TriageDecision",
+    resolution: "ResolutionDraft",
+) -> None:
+    """Persist a ticket's outcome to both its own scope and the customer's history.
+
+    Writes three records:
+      - /ticket/{id}/triage         — the triage decision summary
+      - /ticket/{id}/resolution     — citations + confidence + action
+      - /customer/{email}/history   — a single-line summary so future intake reads find it quickly
+    """
+    # Per-ticket detail (denser; useful for audits)
+    memory.remember(
+        content=(
+            f"Triage: {triage.category.value} / {triage.priority.value} "
+            f"(confidence {triage.confidence:.2f}). "
+            f"Reasoning: {triage.reasoning}"
+        ),
+        scope=ticket_scope(ticket.ticket_id, "triage"),
+        importance=0.4,
+    )
+    memory.remember(
+        content=(
+            f"Response drafted with confidence {resolution.confidence:.2f}, "
+            f"next action: {resolution.suggested_next_action}. "
+            f"Citations: {', '.join(resolution.citations) or 'none'}."
+        ),
+        scope=ticket_scope(ticket.ticket_id, "resolution"),
+        importance=0.5,
+    )
+    # Single-line summary on the customer's history feed
+    memory.remember(
+        content=(
+            f"{ticket.ticket_id}: {triage.category.value} ticket — "
+            f"\"{ticket.subject}\" (priority {triage.priority.value}). "
+            f"Resolution confidence {resolution.confidence:.2f}."
+        ),
+        scope=customer_scope(customer.email, "history"),
+        importance=0.6,  # history is what intake-enrichment reads, so bump it
+    )
